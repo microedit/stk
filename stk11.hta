@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=gbk" />
+<title>增兴投资分析系统</title>
+<HTA:Application
+ID="MYSTK"
+Applicationname="Mystock"
+border="thin"
+borderstyle="normal"
+caption="yes"
+icon="xingRED.ico"
+maximizebutton="yes"
+minimizebutton="yes"
+showintaskbar="yes"
+singleinstance="no"
+sysmenu="yes"
+version="1.0"
+windowstate="normal"
+scroll="yes" />
+<script src="stk1.js" type="text/javascript" charset="utf-8"></script>
+<script type="text/jscript">
+// 股票策略测试程序，设计者李增兴版权所有。
+var formtype='full'; //full/half, full for developer display all,  half for user.
+
+var fso = new ActiveXObject("Scripting.FileSystemObject");
+var ForReading = 1; 
+var ForWriting= 2;
+var ForAppend= 8;
+
+//日期	    开盘	    最高	    最低	    收盘	    成交量	    成交额
+var date1=0, open1=1, high1=2, low1=3, close1=4, vol1=5, amout1=6;
+//var d=0, 	o=1, h=2, l=3, c=4, v=5, a=6;
+var title="日期,股票码,股票名称,买卖,委托价格,数量,是否成交,成交价格,金额,费用,成本,持仓,持仓天数,持仓积数,单次盈利,盈利比例,现金,单股总盈利,资金积数,持仓总天数,折算利率%"
+// p[i][0],买卖,stkcode,stkname,buy/sellprice,vol1,是否成交,dealprice,amount,sumvol,cost,single,total,total
+var p1=[], p1a=[], linesa=[], bill='', stkcodea=[], stknamea=[], lostdate=[], temp=[]
+var path1="", path2="", stkcode='', stkname='',sumvol=0, total=0, cost=0,days=0,totaldays=0,datebak='',accumulated=0,totalAccumulated=0,sumAccumulated=0;
+var  curi=0, buyprice=0, buyvol=0, sellprice=0, sellvol=0,crossdown=0,crossup=0,up=0,down=0, cash=0, testmod='',cash=0,capition=0,enddatecap=0;
+
+function c1() {
+readtdx()
+}
+
+//Charset = "utf-8" or "iso-8859-1"
+function readf(file1, Charset1) {
+    var stream = new ActiveXObject("ADODB.Stream");  
+    stream.Mode = 3;  
+    stream.Type = 2;  
+    stream.Open();
+    stream.Charset = Charset1; // "utf-8" or "iso-8859-1"; 
+	
+	try{
+		stream.LoadFromFile(file1);
+		s= stream.ReadText();
+	}
+	catch(err){
+		formtype='half'
+		return "half";
+	}
+	
+	stream.Close();  
+    delete stream;  
+    stream = null; 
+	formtype='full'
+	return s
+}
+
+function readbin(file1) {
+    var stream = new ActiveXObject("ADODB.Stream");
+//    stream.Mode = 3;
+    stream.Type = 2;  //text
+    stream.Charset = "iso-8859-1"; 
+    stream.Open();
+//	confirm(file1)
+    stream.LoadFromFile(file1);
+	adReadAll = -1;
+	var s = stream.ReadText(adReadAll);
+	stream.Close();
+	stream = null;
+	for(var x=2; x<=s.length/4 + 1; x++) {
+		var b2 = (x-2) * 32
+		p1[x]=[]
+		p1[x][0]=s.charCodeAt(b2+3)*256*256*256 + s.charCodeAt(b2+2)*256*256 + s.charCodeAt(b2+1)*256 + s.charCodeAt(b2+0) //日期
+		p1[x][1]=(s.charCodeAt(b2+7)*256*256*256 + s.charCodeAt(b2+6)*256*256 + s.charCodeAt(b2+5)*256 + s.charCodeAt(b2+4))/100 //开盘价
+		p1[x][2]=(s.charCodeAt(b2+11)*256*256*256 + s.charCodeAt(b2+10)*256*256 + s.charCodeAt(b2+9)*256 + s.charCodeAt(b2+8))/100 //最高价
+		p1[x][3]=(s.charCodeAt(b2+15)*256*256*256 + s.charCodeAt(b2+14)*256*256 + s.charCodeAt(b2+13)*256 + s.charCodeAt(b2+12))/100 //最低价
+		p1[x][4]=(s.charCodeAt(b2+19)*256*256*256 + s.charCodeAt(b2+18)*256*256 + s.charCodeAt(b2+17)*256 + s.charCodeAt(b2+16))/100 //收盘价
+		if (s.charCodeAt(b2+22)>127) {b3=1;b4=s.charCodeAt(b2+22)} else {b3=0;b4=s.charCodeAt(b2+22)-128}
+		if (s.charCodeAt(b2+23)>127) {b5=s.charCodeAt(b2+23)-128+b3} else {b5=0-s.charCodeAt(b2+23)-b3}
+		p1[x][5]=(Math.pow(2 , b5 )) * ( b4 *256*256 + s.charCodeAt(b2+21)*256 + s.charCodeAt(b2+20) ) //金额，浮点型
+		p1[x][6]=s.charCodeAt(b2+27)*256*256*256 + s.charCodeAt(b2+26)*256*256 + s.charCodeAt(b2+25)*256 + s.charCodeAt(b2+24) //成交股数
+		p1[x][7]=s.charCodeAt(b2+31)*256*256*256 + s.charCodeAt(b2+30)*256*256 + s.charCodeAt(b2+29)*256 + s.charCodeAt(b2+28) //保留
+		confirm("0="+p1[x][0]+ " 1="+p1[x][1] + " 2="+p1[x][2] + " 3="+p1[x][3] + " 4="+p1[x][4] + " 5="+p1[x][5] + " 6=" +p1[x][6] + " 7="+p1[x][7])
+	}
+    return s;
+}
+
+function readfile(file1) {
+var f1, ts, s;
+var CreateYes=1;
+var CreateNo=0;
+var FormatUnicode= -1;
+var FormatAscii= 0;
+//confirm(file1)
+try{
+	ts = fso.OpenTextFile(file1, ForReading,CreateNo,FormatAscii); 
+	s = ts.Readall();// 读取文件全部内容到字符串
+	ts.Close();// 关闭文件
+}
+catch(err){
+ confirm("ERR01: file1=" + file1 + err.message + ". 请关闭相关程序。");
+ s= "";
+}
+// 显示字符串信息
+return s ;
+}
+
+function p2num(x) {   
+//p1[x][0]= Number(p1[x][0]);
+p1[x][1]= Number(p1[x][1]);
+p1[x][2]= Number(p1[x][2]);
+p1[x][3]= Number(p1[x][3]);
+p1[x][4]= Number(p1[x][4]);
+p1[x][5]= Number(p1[x][5]);
+p1[x][6]= Number(p1[x][6]);
+}
+
+function writefile(file1,data1) {
+	var ts;
+	try{
+		ts = fso.OpenTextFile(file1, ForWriting, true);
+		ts.Write (data1);
+	}
+	catch(err){
+		confirm("ERR02: 请关闭相关程序。file1 = "+file1 + err.message + ", data1="+data1);
+		self.close();
+	}
+// 关闭文件
+	ts.Close();
+}
+
+function appendfile(file1,data1) {
+	var ts = fso.OpenTextFile(file1, ForAppend , true);
+	try{
+		ts.Write (data1);
+	}
+	catch(err){
+		confirm("ERR03:请关闭相关程序。file1 = "+file1 + err.message + ", data1="+data1) 
+	}
+// 关闭文件
+	ts.Close();
+}
+
+function cmd(cmd1) {
+var wsh = new ActiveXObject('WSCript.shell');
+//confirm( "cmd1=" + cmd1);
+wsh.run(cmd1);
+//wsh.run('notepad.exe');
+}
+
+function dspfile(this1) {
+	var file1,s
+	init(this1);	
+	file1= path1 + this1.form.market.value + this1.form.stock.value + ".txt";
+	buystk(file1)
+//	this1.form.result.value = title+result + '\r\n' ;
+//	writefile("stktrn.csv",title+result)
+//	dspline(this1.form.result);
+	dspcsv(file1);
+}
+
+function init(this1) {
+	if (formtype=='full') {
+// down parm
+		downdays= Number(this1.form.buydays.value);
+		updays= Number(this1.form.selldays.value)
+		rebuyrate=Number(this1.form.rebuyrate.value);
+		suprebuyrate=Number(this1.form.suprebuyrate.value);
+		maxcost=Number(this1.form.maxcost.value);
+		maxbuyamount=Number(this1.form.maxbuyamount.value);
+		minprofit=Number(this1.form.minprofit.value);
+		maxprofit=Number(this1.form.maxprofit.value);
+		maxlost=Number(this1.form.maxlost.value);
+		maxdays=Number(this1.form.maxdays.value);
+		ma1=Number(this1.form.ma1.value);
+		ma2=Number(this1.form.ma2.value);
+		buyPriceRate=Number(this1.form.buyPriceRate.value);
+		sellPriceRate=Number(this1.form.sellPriceRate.value);
+
+// up parm
+		udowndays= Number(this1.form.ubuydays.value);
+		uupdays= Number(this1.form.uselldays.value)
+		urebuyrate=Number(this1.form.urebuyrate.value);
+		usuprebuyrate=Number(this1.form.usuprebuyrate.value);
+		umaxcost=Number(this1.form.umaxcost.value);
+		umaxbuyamount=Number(this1.form.umaxbuyamount.value);
+		uminprofit=Number(this1.form.uminprofit.value);
+		umaxprofit=Number(this1.form.umaxprofit.value);
+		umaxlost=Number(this1.form.umaxlost.value);
+//		ulostma1=Number(this1.form.ulostma1.value);
+		umaxdays=Number(this1.form.umaxdays.value);
+		uma1=Number(this1.form.uma1.value);
+		uma2=Number(this1.form.uma2.value);
+//		uma3=Number(this1.form.uma3.value);
+//		uma4=Number(this1.form.uma4.value);
+		ubuyPriceRate=Number(this1.form.ubuyPriceRate.value);
+		usellPriceRate=Number(this1.form.usellPriceRate.value);
+	} else {
+// down parm
+		downdays= 4;
+		updays= 2
+		rebuyrate=0.85;
+		suprebuyrate=0.7;
+		maxcost=50000;
+		maxbuyamount=11000;
+		minprofit=1.03;
+		maxprofit=3;
+		maxlost=0.5;
+		maxdays=70;
+		ma1=5;
+		ma2=60;
+// up parm
+		udowndays= 5;
+		uupdays= 3
+		urebuyrate=0.9;
+		usuprebuyrate=0.8;
+		umaxcost=50000;
+		umaxbuyamount=11000;
+		uminprofit=1.05;
+		umaxprofit=3;
+		umaxlost=0.5;
+		umaxdays=70;
+		uma1=5;
+		uma2=60;
+	}
+	
+	capition=Number(this1.form.capition.value);
+	strdate= this1.form.strdate.value;
+	enddate= this1.form.enddate.value;
+	buyfee=Number(this1.form.buyfee.value)/100;
+	sellfee=Number(this1.form.sellfee.value)/100;
+	path1=this1.form.path1.value;
+	path2=this1.form.path2.value;
+	
+	writefile(path2+"stktrn.csv",title);
+	writefile(path2+"stkbil.csv", "//"+enddate+"买卖指令,,,日期,买卖,股票名称,价格,股数");
+
+	p1=[];
+	sumvol=0
+	total=0
+	cost=0
+	i=0;
+	accumulated=0
+	totalAccumulated=0
+	sumAccumulated=0
+	totaldays=0
+	totalall=0;
+	bill=''
+}
+
+function testHolding(this1) {
+	testmod='testHolding';
+	stockholding=this1.form.stockholding.value;
+//期初股票请填写在此处：sz/sh:股票代码:股数:成本价:买入日期
+//sh:600036:1000:17.80:20150925
+	init(this1)
+	sumvola = new Array()
+	costa = new Array()
+	daysa = new Array()
+	total1a = new Array()
+	totaldaysa = new Array()
+	totalAccumulateda = new Array()
+	datebaka = new Array()
+
+	var list1 = stockholding.replace(/,/g,":").split('\r\n')
+	for (var i=1; i<list1.length; i++) {
+		var list2=list1[i].split(':');
+		strdate= list2[4];
+
+		sumvola[i] = Number(list2[2]);
+		costa[i] = -Number(list2[3])*sumvola[i]
+		daysa[i] =  1;
+		total1a[i] = costa[i]
+		totaldaysa[i] =  1;
+		totalAccumulateda[i] =  costa[i];
+		datebaka[i] = list2[4];
+		buystk(path1+list2[0]+list2[1]+'.txt',i)
+	}
+//	var list3=list1.shift();
+	dspcsv(list1.join("|"));
+}
+
+function testdir(this1) {
+	init(this1);
+	testmod='testdir'
+	var ts, filesList='';
+	var f = fso.GetFolder(path1);  
+    // 遍历目录  
+/*    var fk = new Enumerator(f.SubFolders);  
+    for (; !fk.atEnd(); fk.moveNext()) {  
+        var filesList += fk.item();  
+    }  
+*/
+    // 遍历目录文件  
+	var fc = new Enumerator(f.files);  
+	for (; !fc.atEnd(); fc.moveNext()) {  
+		buystk(fc.item())
+	}  
+	dspcsv(path1);
+}
+
+function testpool(this1,dsp1) {
+	init(this1);
+	testmod='testpool';
+	var list1 = readfile(this1.form.stkpool1.value);  
+	var list2 = list1.split('\r\n')
+//	prompt(list1,list2)
+	var i;
+	for (i in list2) 
+	{
+		buystk(path1.concat(list2[i]))
+	}
+	return dspcsv(this1.form.stkpool1.value,dsp1);
+}
+
+
+/* 固定本金测试，有以下2种方案待定。
+方案1：先假设资金足够，每个股票独立测试生成买卖清单，再对买卖清单进行排序，计算每天资金量，超出时修改为不成交，并重新用行情数据计算该股后续到买卖指令。每天步进检查修正到结束日。
+*/
+function testcap(this1) {
+/*	init(this1)
+	testmod='testcap';
+	var list1 = readfile(this1.form.stkpool1.value);  
+	var list2 = list1.split('\r\n')
+//	prompt(list1,list2)
+	var i;
+	for (i in list2) {
+		buystk(path1.concat(list2[i]))
+	}
+*/
+// sort stktrn
+	path2=this1.form.path2.value;
+	buyfee=Number(this1.form.buyfee.value)/100;
+	sellfee=Number(this1.form.sellfee.value)/100;
+	var trn1=readfile(path2+'stktrn.csv');
+//	confirm("trn1="+trn1)
+	var trn1a=trn1.split("\r\n")
+//	confirm("trn1a.length="+trn1a.length)
+	trn3a=[]  // stktrn split to trn3a[row,col]
+	lostdate=[]
+	var sorta=[]
+	for (var i=1; i<trn1a.length; i++) {
+		var	trn2a=trn1a[i].split(",")
+		trn3a.push(trn2a)
+		sorta.push([trn2a[0],(i-1)])  // sorta format：date,recordNnumber
+	}
+	cash = Number(this1.form.capition.value);
+	var sortb=new Array();
+	sortb = sorta.sort(function(x,y){return Number(x[0])-Number(y[0])})
+	for (var i=0,s2=''; i<sortb.length; i++) {
+		s2 += sortb[i][0]+","+sortb[i][1]+"="+trn3a[sortb[i][1]][0]+","+trn3a[sortb[i][1]][1]+"|"
+	}
+	confirm(" s2="+s2)
+//	confirm("i="+i+", sortb=\r\n"+sortb.length+" .join="+sortb.join("|"))
+// read sorta array, gen trn3a
+//	confirm(' sortb.length=',sortb.length)
+	var len1 = sortb.length
+//	confirm(" len1="+ len1)
+	for (i=0; i< len1; i++) {
+		var r1 = sortb[i][1]  // r1 = RecordNumber for trn3a
+//		confirm(" r1="+r1+" trn3a[r1][0]="+trn3a[r1][0])
+		amt1 = Number(trn3a[r1][8]) + Number(trn3a[r1][9])
+//		confirm("stock="+ trn3a[r1][1] + " date="+ trn3a[r1][0] + " amt1="+amt1)
+		if (cash+amt1 < 0 && trn3a[r1][3]=="买" && trn3a[r1][6]=="成交" ) {
+			lostdate.push(trn3a[r1][0]+trn3a[r1][1])
+			chgcap(r1,"没钱不成交")
+//			confirm("没钱不成交="+r1)
+//			try{var a=trn3a[r1+1][1]}catch(err) {confirm(" r1="+r1 + " err="+ err.message+" trn3a[r1+1]="+trn3a[r1+1])}
+			var x1=1
+//			confirm("假补仓 r1+x1="+(r1+x1)+" trn3a[r1+x1][1]"+trn3a[r1+x1][1]+ " trn3a[r1][x1]"+trn3a[r1][x1]+" trn3a[r1+x1][3]"+trn3a[r1+x1][3]+"trn3a[r1+x1][6]="+trn3a[r1+x1][6]+" for="+(r1+x1<len1+1 && trn3a[r1+x1][1] == trn3a[r1][1] && trn3a[r1+x1][3]=="买" && trn3a[r1+x1][6]=="成交")+" if"+(r1+x1<len1+1 && trn3a[r1+x1][1] == trn3a[r1][1] && ((trn3a[r1+x1][3]=="卖" && trn3a[r1+x1][6]=="成交") || trn3a[r1+x1][3]=="结")))
+			for(var x1=1;(r1+x1<len1+1 && trn3a[r1+x1][1] == trn3a[r1][1] && ((trn3a[r1+x1][3]=="买" && trn3a[r1+x1][6]=="成交")||(trn3a[r1+x1][3]=="卖" && trn3a[r1+x1][6]=="不成交"))); x1++) {
+				if(trn3a[r1+x1][3]=="买" && trn3a[r1+x1][6]=="成交") {chgcap(r1+x1, "没钱开仓的假补仓")}
+//				confirm("假补仓 r1+x1="+(r1+x1))
+			}
+			if (r1+x1<len1+1 && trn3a[r1+x1][1] == trn3a[r1][1] && ((trn3a[r1+x1][3]=="卖" && trn3a[r1+x1][6]=="成交") || trn3a[r1+x1][3]=="结")) { // next record if is same stockcode, and sell 
+				chgcap(r1+x1, "没钱买的假卖")
+//				confirm("假卖 r1+x1="+(r1+x1))
+			}
+		} else {
+			cash += amt1
+//			if (!trn3a[r1][16]) {
+			trn3a[r1][16]=cash
+//			}
+//			confirm("cash="+cash)
+		}
+	}
+	writefile(path2+"stktrn2.csv",title+"\r\n")
+	trn3a = trn3a.sort(function(x,y){return Number(x[0])-Number(y[0])})
+	for (i=0; i<trn3a.length-1; i++) {
+		try{appendfile(path2+"stktrn2.csv", trn3a[i].join(",")+"\r\n")
+		}catch(err) {confirm(" i="+i + " err="+ err.message+" trn3a[i]1="+trn3a[i][1])}
+	}
+//	dspcsv(this1.form.stkpool1.value,"y");
+	cmd(path2+"stktrn2.csv")
+}
+// 修正本金不足时到交易历史
+function chgcap(rec1, reason) {
+	trn3a[rec1][6]=reason
+	trn3a[rec1][7]=''
+	trn3a[rec1][8]=''
+	trn3a[rec1][9]=''
+	if(trn3a[rec1-1][1]==trn3a[rec1][1] && trn3a[rec1][3]=="买") {
+		trn3a[rec1][10]=trn3a[rec1-1][10]
+		trn3a[rec1][11]=trn3a[rec1-1][11]
+		trn3a[rec1][12]=datediff(trn3a[rec1][0],trn3a[rec1-1][0])  //天数
+		trn3a[rec1][13]=trn3a[rec1-1][10] * trn3a[rec1][12] //积数=上日成本*天数
+		trn3a[rec1][14]=''
+		trn3a[rec1][15]=''
+	} else if (trn3a[rec1][3]=="卖"  && trn3a[rec1][6]=="成交" || trn3a[rec1][3]=="结") {
+		trn3a[rec1][5]=trn3a[rec1-1][11] //卖出股数调整
+		trn3a[rec1][6]="部分假卖"
+		trn3a[rec1][8]=trn3a[rec1][4]*trn3a[rec1][5] //金额调整为价格*股数
+		trn3a[rec1][9]=trn3a[rec1][8]*sellfee //费用调整
+		trn3a[rec1][10]=trn3a[rec1-1][10]+trn3a[rec1][9] //成本=上笔成本+卖出费用
+		trn3a[rec1][11]=''
+		trn3a[rec1][12]=datediff(trn3a[rec1][0],trn3a[rec1-1][0])  //天数
+		trn3a[rec1][13]=trn3a[rec1-1][10] * trn3a[rec1][12] //积数=上日成本*天数
+		trn3a[rec1][14]=''
+		trn3a[rec1][15]=''
+	} else{
+		trn3a[rec1][10]=''
+		trn3a[rec1][11]=''
+		trn3a[rec1][12]=''
+		trn3a[rec1][13]=''
+		trn3a[rec1][14]=''
+		trn3a[rec1][15]=''
+	}
+	trn3a[rec1][16]=''
+	trn3a[rec1][17]=''
+	trn3a[rec1][18]=''
+	trn3a[rec1][19]=''
+	trn3a[rec1][20]=''
+}
+
+/* 固定本金测试，有以下2种方案待定。
+方案2：每天步进，每天测试股票池所有股票当天的操作，提供当天的可用现金、各股票持股数和成本作为基础数据，进行计算。
+*/
+function testcap2(this1) {
+	init(this1);
+	testmod='testcap';
+	var list1 = readfile(this1.form.stkpool1.value);  
+	var list2 = list1.split('\r\n')
+//	prompt(list1,list2)
+	sumvola = new Array()
+	costa = new Array()
+	daysa = new Array()
+	totaldaysa = new Array()
+	totalAccumulateda = new Array()
+	datebaka = new Array()
+	total1a = new Array()
+	cash = capition;
+	p1a= new Array()
+
+	for (var i in list2) {
+		sumvola[i] = 0;
+		costa[i] = 0;
+		daysa[i] =  0;
+		totaldaysa[i] =  0;
+		totalAccumulateda[i] =  0;
+		total1a[i]=0;
+		datebaka[i] = '';
+	}
+	enddatecap = enddate
+	for ( datex= strdate; datex<=enddatecap; datex=DateAdd(datex,1)) {
+		strdate=datex;
+		enddate=datex;
+		for (var i in list2) {
+			result = '';
+			buystk(path1.concat(list2[i]),i)
+			stkposition(i,result)
+		}
+//		dspcsv(this1.form.stkpool1.value, "n");
+//		confirm("datex=" + datex)
+	}
+//	confirm("datex2=" + datex)
+	dspcsv(this1.form.stkpool1.value);
+}
+
+// stock position and cash postion daily process. 记录每天的头寸和价格盈亏
+function stkposition(i,result) {
+
+}
+
+
+function date2s(date1) {
+	var d2=new Date(date1)
+   return ""+(d2.getFullYear()*10000+(d2.getMonth()+1)*100+d2.getDate())+" "+d2.toLocaleTimeString();
+}
+
+function dspcsv(stkpool, dspcmd) {
+//confirm("arguments[0]=",arguments[0])
+//	var stkpool = arguments[0]|| "";
+	var dspcmd = arguments[1] || "y";
+	if (stkpool != "") {
+		var d= new Date()
+		var datestr=d.toLocaleString() 
+		var trntot1="股票池,开始,结束,总盈利,资金积数,折算利率%,测试时间,大势,买入条件,补仓条件,卖出条件,buysell" // buy.tostring(), sell.tostring()
+		trntot1+="\r\n"+stkpool+","+strdate+","+enddate
+		rateYear=(-totalall/sumAccumulated*365*100) // 年化利率
+		trntot1 += ","+totalall+","+(-sumAccumulated)+","+ rateYear +","+ date2s(Date());
+		if(formtype=='full') {
+			trntot1+=",(下跌行情"+ma1+"日均线低于"+ma2+"日均线)(上升行情"+uma1+"日均线高于"+uma2+"日均线),\
+(下跌:连跌"+ downdays+"天买入 收盘*"+buyPriceRate+"买)\
+(上升:连跌"+udowndays+"天买入) 收盘*"+ubuyPriceRate+"买,\
+(下跌:连跌补仓"+ rebuyrate+" 无条件补仓"+ suprebuyrate+" 最大仓位"+ maxcost+")\
+(上升:连跌补仓"+urebuyrate+" 无条件补仓"+usuprebuyrate+" 最大仓位"+umaxcost+"),\
+(下跌:连涨"+ updays+"天且盈利"+( minprofit)+"或止盈"+( maxprofit)+"卖出或止损"+ maxlost+"或超"+ maxdays+"天卖出 收盘*"+sellPriceRate+"卖)\
+(上涨:连涨"+uupdays+"天且盈利"+(uminprofit)+"或止盈"+(umaxprofit)+"卖出或止损"+umaxlost+"或超"+umaxdays+"天卖出 收盘*"+usellPriceRate+"卖)";
+		} else {
+			trntot1+=",("+ma1+":"+ma2+")\
+("+uma1+":"+uma2+"),\
+("+ downdays+")\
+("+udowndays+"),\
+("+ rebuyrate+":"+ suprebuyrate+":"+ maxcost+")\
+("+urebuyrate+":"+usuprebuyrate+":"+umaxcost+"),\
+("+ updays+":"+( minprofit)+":"+( maxprofit)+":"+ maxdays+")\
+("+uupdays+":"+(uminprofit)+":"+(umaxprofit)+":"+umaxdays+")"
+		}
+		b1=''+buysell;
+		trntot1+=',"'+b1.replace(/"/g,'""')+'"\r\n';
+		appendfile(path2+'stktot.csv',trntot1)
+		appendfile(path2+'stkbil.csv',bill)
+//		document.getElementById("dsptot").innerHTML = "<table border=1><tr><td>"+trntot1.replace(/\r\n/g,"</td></tr><tr><td>").replace(/,/g,"</td><td>")+"</td></tr></table>"
+		var bill2=bill.replace(/\r\n/g,"</td></tr><tr><td>").replace(/,/g,"</td><td>").replace(/\(/g,"</td><td>");
+		bill2="<table border=1><tr><td>"+bill2+"</td></tr></table>"
+		G("dspbil").innerHTML = bill2
+	}
+	if (dspcmd == "y") {
+//		if(formtype=='full') {
+			cmd(path2+'stktrn.csv');
+			cmd(path2+'stktot.csv');
+//		}
+		cmd(path2+'stkbil.csv');
+	}
+	if (dspcmd == "t") {
+		cmd(path2+'stktot.csv');
+	}
+	kline(100)
+	if(totalall<0) totalall = 0 - totalall // 亏损时，金额和年化利率都为负，负*负得正，不能把亏损当盈利比较，所以取反金额，使totalall*rateYear为负数再返回做比较
+	return totalall*rateYear; // 返回totalall=盈利金额, 或者rateYear=年化利率，或totalall*rateYear
+}
+
+function dspline(text1) {
+  if (text1.value) {
+    var li="";
+	var linename = text1.name + 'li';
+    if (text1.previousSibling.name != linename) {
+		var newitem = document.createElement("<textarea class='line' cols=4 readonly='readonly' disabled > </textarea>");
+		newitem.name = linename;
+//		newitem.cols=4;
+//		newitem.readonly="readonly"
+//		newitem.disabled = "disabled";
+//		newitem.class = "line";
+		text1.form.insertBefore(newitem,text1);
+	}
+    var count=text1.value.match(/\n/g).length+1
+    for (var i=1; i<= count; i++)
+    	{li +=i+"\r\n";}
+	with (text1.previousSibling) {
+		rows=text1.rows;
+		value=li;
+		scrollTop = text1.scrollTop;
+	}
+		
+	if (text1.addEventListener) {  
+		text1.addEventListener("onkeyup",function() {dspline(text1);})
+//		text1.addEventListener("onFocus",function() {dspline(text1);})
+		text1.addEventListener("onScroll",function(){text1.previousSibling.scrollTop = text1.scrollTop;});
+	} else if (text1.attachEvent) {                  // IE 8 及更早版本
+//		text1.attachEvent("onclick",function() {dspline(text1);});
+		text1.attachEvent("onchange",function() {dspline(text1);})
+//		text1.attachEvent("onfocus",function() {dspline(text1);})
+		text1.attachEvent("onscroll",function(){text1.previousSibling.scrollTop = text1.scrollTop;});
+	}
+	}
+}
+
+function readstk(file1) {
+//	var totalbak=total
+	/* file format:
+	600000 浦发银行 日线 不复权
+	日期	    开盘	    最高	    最低	    收盘	    成交量	    成交额
+	2011/10/10	8.52	8.56	8.41	8.42	32428434	274365568.00
+	*/
+
+	s=readfile(file1);
+	lines=s.split("\r\n");
+	p1.length=0    ; // delete p1 old data of last stock
+	p1[0]=lines[0].split(" ")
+	stkcode=lines[0].slice(0,6)
+	pd=lines[0].search(/日线/i)
+	stkname=lines[0].substring(7,pd)
+	p1[0][2]=lines[0].substr(pd,2)
+	p1[0][3]=lines[0].slice(pd+3)
+	document.getElementById('stkname').innerHTML=p1[0] // + " 0=" + p1[0][0] + " 1=" + p1[0][1] + " 2=" +p1[0][2] + " 3=" +p1[0][3]
+	p1[1]=lines[1].split("\t")
+	p2num(1)
+	p1[2]=lines[2].split("\t")
+	p2num(2)
+	p1[3]=lines[3].split("\t")
+	p2num(3)
+	return lines
+}
+	
+/* stki用于固定本金测试，传入当前股票持有情况到数组编号，用于定位股票在备份数组sumvola,daysa,totaldaysa等的位置
+*/
+function buystk(file1,stki) {
+	sumvol = 0;
+	days =  0;
+	totaldays =  0;
+	totalAccumulated =  0;
+	datebak = '';
+	total1 = 0;
+	sellprice = 0;
+	sellvol = 0;
+	buyprice = 0;
+	buyvol = 0;
+	
+	up=0
+	down=0;
+	result="";
+	
+	if (!stki) {
+		readstk(file1);
+	} else {
+		if (!p1a[stki]) {
+			linesa[stki]=readstk(file1);
+			p1a[stki]=p1
+			stkcodea[stki]=stkcode
+			stknamea[stki]=stkname
+		} else {
+			lines=linesa[stki];
+			p1=p1a[stki]
+			stkcode=stkcodea[stki]
+			stkname=stknamea[stki]
+			sumvol = sumvola[stki] || 0;
+			cost = costa[stki] || 0;
+			days = daysa[stki] || 0;
+			total1 = total1a[stki] || 0;
+			totaldays = totaldaysa[stki] || 0;
+			totalAccumulated = totalAccumulateda[stki] || 0;
+			datebak = datebaka[stki] || '';
+		}
+	}
+	// 初始仓位打印
+	if (testmod=='testHolding') {
+		result += "\r\n" + strdate +",'"+stkcode+ "',"+ stkname+ ",买,"+ (-cost/sumvol) + "," + sumvol + ",初始仓位," + (-cost/sumvol) + "," + cost + ",," + cost + "," + sumvol + ",,"+cash+"," 
+	}
+	
+	for (var i=3; i<lines.length-1 && p1[i][date1]<=enddate; i++) {
+		curi=i
+		userfun();
+		if(p1[i][0]>=strdate && p1[i][0] <= enddate && p1[i][6]>0) {
+			//if(ref(date1,0)>20160101) confirm(ref(date1,0)+" buyprice="+buyprice)
+			deal(i)
+		}
+		clearPrice()
+		buysell()
+		p1[i+1]=lines[i+1].split("\t")
+		p2num(i+1)
+	}
+	if (testmod!='testcap' || p1[i][date1]>=enddatecap ) {
+//		confirm("testmod="+testmod)
+		settle(p1[i-1])
+		p1[i][date1]=DateAdd(enddate,1);
+		deal(i)
+	}
+//	if(total1!=totalbak) {result += ", " + total1 + "," + totalAccumulated + "," + totaldays+","+(-(total-totalbak)/totalAccumulated*365);}
+	if (totalAccumulated != 0) {
+		result += ", " + total1 + "," + totalAccumulated + "," + totaldays+","+(-total1/totalAccumulated*365)*100;
+	}
+	appendfile(path2+"stktrn.csv",result)
+	if (totalAccumulated != 0) {
+		sumAccumulated+=totalAccumulated;
+		totalall += total1;
+	}
+	if (stki) {
+		sumvola[stki] = sumvol ;
+		costa[stki] = cost;
+		daysa[stki] = days;
+		total1a[stki] =total1;
+		totaldaysa[stki] = totaldays;
+		totalAccumulateda[stki] = totalAccumulated;
+		datebaka[stki] = datebak;
+		p1a[stki]=p1
+		linesa[stki]=lines
+	}
+}
+
+function deal(i){
+	thedate=p1[i][date1]
+	openPrice1=p1[i][open1]
+	highPrice1=p1[i][high1]
+	lowPrice1=p1[i][low1]
+	closePrice1=p1[i][close1]
+	if(p1[i][vol1]=0) {
+		result += ",停牌"
+	} 
+	if (sellprice>0) {
+		sellprice = Math.round(sellprice*1000)/1000
+		result += "\r\n" + thedate +",'"+stkcode+ "',"+ stkname+ ",卖,"+ sellprice + "," + sellvol
+		if (sellprice>highPrice1 || sellvol==0) {
+			result += ",价高或空仓不成交, , , , , , , , , , "
+		} else if ( !highPrice1 || p1[i][date1]>enddate ) {
+			if ( testmod == 'testcap') {
+				// do nothing
+			} else {
+				result += ",结束日待下单, , , , , , , , , , "
+				bill += "\r\n sell('"+stkcode + "'," + sellvol + "," + sellprice + ")" //,"+thedate+",卖,"+stkcode+stkname +","+ sellprice +","+ sellvol 
+			}
+		} else {
+			if (sellprice<openPrice1) {
+				dealprice=openPrice1;  //开盘价成交
+			} else {
+				dealprice=sellprice; 
+			}
+			if (sellvol>sumvol || sellvol<=0) {  // 卖出股数大于持股数或者小于等于0，按持股数全部卖出
+				sellvol=sumvol
+			} 
+			amount=Math.round(dealprice*sellvol);
+			fee = - amount * sellfee;
+			cash += amount + fee
+			cost += fee
+			single = cost + amount
+			total1 += amount + fee
+			sumvol -= sellvol
+			days1=datediff(p1[i][date1],datebak);
+			totaldays += days1
+			accumulated=cost*days1
+			totalAccumulated += accumulated
+			result += ",成交," + dealprice + "," + amount + "," + fee + "," + cost + "," + sumvol + "," + days1 + "," + accumulated
+			if (sumvol==0) {
+				result += "," + single+","+(-single/cost)*100  //卖完要显示单次盈利
+			} else {
+				result += "," + " , "  //没卖完不要显示单次盈利
+				cost += amount  //没卖完的，金额计入成本
+			}
+			result += ","+cash
+			if (sumvol==0) {
+				cost=0
+				datebak=''
+			}
+		}
+	}
+	if (buyprice>0 ) {
+//		confirm(ref(date1,0)+" "+buyprice);
+		buyprice = Math.round(buyprice * 1000)/1000;
+		result += "\r\n" + p1[i][date1] +",'"+stkcode+ "',"+ stkname+ ",买,"+ buyprice + "," + buyvol
+		if (buyprice < lowPrice1 || myDate > serviceEndDate ) {
+			result += ",不成交, , , , , , , , ,,"
+		} else if ( !highPrice1 || p1[i][date1]>enddate ){
+			if ( testmod == 'testcap') {
+				// do nothing
+			} else {
+				result += ",结束日待下单, , , , , , , , , , "
+				bill += "\r\n buy('"+stkcode + "'," + buyvol + "," + buyprice + ")" //,"+thedate+",买,"+ stkcode+stkname +","+ buyprice + "," + buyvol
+			}
+		}
+//			else if( lostdate.indexOf(p1[i][date1]+stkcode)!=-1 ) { //没钱不买
+//				result += ",没钱不买, , , , , , , , , , "
+//		} 
+		else {
+			if (buyprice>openPrice1) {
+				dealprice=openPrice1;
+			} else {
+				dealprice=buyprice; 
+			}
+			amount = -Math.round(dealprice * buyvol )
+			fee = amount * buyfee
+			if (datebak!='' && buyvol>0) {
+				days1=datediff(p1[i][date1],datebak);
+				totaldays += days1
+				accumulated=cost*days1
+				totalAccumulated += accumulated
+			} else {
+				days1=0
+				accumulated=0
+			}
+			datebak=p1[i][date1]  //买入日期
+			if ( testmod=='testcap' && cash + amount + fee < 0 ) {
+				result += ",没钱不成交, , , , , , , , , "
+			} else {
+				cash += amount + fee
+				cost += amount + fee
+				total1 += amount + fee
+				sumvol += buyvol
+				result += ",成交," + dealprice + "," + amount + "," + fee + "," + cost + ","  + sumvol + "," + days1 + "," + accumulated + ", , ," + cash
+			}
+		}
+	}
+	clearPrice()
+}
+
+function clearPrice() {
+	buyprice=0
+	sellprice=0
+	buyvol=0
+	sellvol=0
+}
+
+function datediff(d1,d2) {
+//	var date1 = new Date(d1)
+//	var date1 = new Date(d2)
+	var date1 = new Date(d1.substr(0,4)+'/'+d1.substr(4,2)+'/'+d1.substr(6,2))
+	var date2 = new Date(d2.substr(0,4)+'/'+d2.substr(4,2)+'/'+d2.substr(6,2))
+	return (date1 - date2)/(24 * 60 * 60 * 1000);
+}
+
+function DateAdd(dd,n1){
+//var a = new Date(dd)
+	var a = new Date(dd.substr(0,4)+'/'+dd.substr(4,2)+'/'+dd.substr(6,2))
+	a = +a + n1 * 24 * 60 * 60 * 1000
+	a = new Date(a)
+	return ""+(a.getFullYear()*10000+(a.getMonth()+1)*100+a.getDate());
+}
+
+function G(objid){
+return document.getElementById(objid);
+}
+
+function settle(p2) {
+	if (sumvol > 0) {
+		amount=Math.round(p2[close1] * sumvol )
+		fee = - amount * sellfee
+		single = cost + amount +fee
+		total1 +=amount + fee
+		days1=datediff(p2[date1],datebak);
+		totaldays += days1
+		accumulated=cost*days1
+		totalAccumulated += accumulated
+		result += "\r\n" + p2[0] + ",'" + stkcode + "',"+ stkname + ",结,"+p2[close1]+ ","  + sumvol + ",持股," +p2[close1] + ","+amount + "," + fee + "," + cost + "," + sumvol + "," + days1 + "," + accumulated + "," + single+ "," + (-single/cost)*100 + "," + cash;
+		sumvol=0;
+		cost=0
+	}
+}
+
+/* 通达信交易处理，转为调用外部程序 tran.vbs
+var WshShell=new ActiveXObject("WScript.Shell");
+var app1, app2 
+function tdx() {
+//	var WshShell, app1
+//	var WshShell=WScript.CreateObject("WScript.Shell")  
+	var infoName = "tdxw.exe"    //指定通达信行情程序名，进程名
+	var trnName = "winwt.exe"    //指定通达信独立交易程序名，进程名
+	var strComputer = "."
+	var objWMIService = GetObject("winmgmts:\\" + strComputer + "\root\cimv2")
+	var colItems = objWMIService.ExecQuery("Select * from Win32_Process")
+	for (objItem in colItems) {
+		var name1=objItem.Name
+		if (name1.toLowerCase() == infoName) {
+			// WScript.Echo objItem.Name,objItem.Handle
+			app1 = objItem.Handle    // app1=通达信行情进程
+		}
+		if (name1.toLowerCase() == trnName) {
+			// WScript.Echo objItem.Name,objItem.Handle
+			app2 = objItem.Handle    // app1=通达信交易进程
+		}
+
+	}
+	objWMIService = Null
+}
+
+//买股票
+function buy(stock, price, vol) {
+WScript.Sleep( 1000)
+WshShell.AppActivate (app2)      // 激活通达信交易窗口
+WScript.Sleep (1000)
+WshShell.SendKeys( "{F8}" )          //进入通达信买入功能
+WScript.Sleep (1000)
+WshShell.SendKeys ( stock)
+WScript.Sleep (1000)
+WshShell.SendKeys (price & "{tab}")
+WScript.Sleep ( 1000 )
+WshShell.SendKeys (vol & "{enter}")
+WScript.Sleep (1000)
+WshShell.SendKeys( " ")
+}
+
+//卖股票
+function sell(stock, price, vol) {
+WScript.Sleep (1000)
+WshShell.AppActivate (app2 )     //激活通达信交易窗口
+WScript.Sleep( 1000)
+WshShell.SendKeys ("{F9}")          //进入通达信买入功能
+WScript.Sleep (1000)
+WshShell.SendKeys (stock)
+WScript.Sleep (1000)
+WshShell.SendKeys (price & "{tab}")
+WScript.Sleep (1000)
+WshShell.SendKeys (vol & "{tab}")
+WScript.Sleep (1000)
+WshShell.SendKeys (" ")
+WScript.Sleep (1000)
+WshShell.SendKeys (" ")
+}
+
+// 下载日线数据
+function download() {
+WshShell.AppActivate (app1)      //激活通达信窗口
+WScript.Sleep (1000)
+WshShell.SendKeys ("." )          //'进入通达信.命令窗口
+WScript.Sleep (1000)
+WshShell.SendKeys ("933{enter}")  //'数据下载快捷命令
+WScript.Sleep (1000)
+WshShell.SendKeys (" ")           //'点击默认日期范围
+WshShell.SendKeys ("{tab}{tab}{tab}{tab}")  //'跳4格到开始下载按钮
+WScript.Sleep (1000)
+WshShell.SendKeys (" ")      //'点击开始下载按钮
+WScript.Sleep (55000)         //'等待下载完成, 55秒
+WshShell.SendKeys ("{tab}")  //'跳1格到 关闭 按钮
+WshShell.SendKeys (" ")      //'点击 关闭 按钮
+}
+*/
+
+/*cross(x,y) {
+  if ()
+}
+
+<button onclick="download()" >下载数据</button>
+<button onclick="buy('stock', 'price', 'vol')" >买入</button>
+<button onclick="sell('stock', 'price', 'vol')" >卖出</button>
+
+*/
+
+function init1(this1) {
+	myDate = new Date();
+	serviceEndDate = new Date("2018/04/30");
+	if (myDate > serviceEndDate) {
+		confirm("投资策略已过时，继续用此投资可能有较大风险，系统功能失效，软件服务到期，如需使用可以联系作者获取新版本。qq: 75800377");
+		self.close();
+	}
+	var form1 = readf("stkf.frm", "utf-8")
+	if(formtype=='full' && form1 != 'half') {
+		G("div1").innerHTML=form1
+	}
+	if(myDate.getMonth()<9) { mchar="0"} else {mchar=""}
+	if(myDate.getDate()<10) { dchar="0"} else {dchar=""}
+	G('stkform').enddate.value=""+myDate.getFullYear()+mchar+(myDate.getMonth()+1)+dchar+myDate.getDate()
+	best2016(G('stkform').enddate)
+	//	runbest()
+//	drawSVG();
+}
+function today() {
+	myDate = new Date();
+	if(myDate.getMonth()<9) { mchar="0"} else {mchar=""}
+	if(myDate.getDate()<10) { dchar="0"} else {dchar=""}
+	G('stkform').enddate.value=""+myDate.getFullYear()+mchar+(myDate.getMonth()+1)+dchar+myDate.getDate()
+}
+
+
+function kline(klineNumber) {
+	klineSVG='<HTML><HEAD></HEAD><BODY><svg id=klinke xmlns="http://www.w3.org/2000/svg" version="1.1"><line x1="5" y1="320" x2="640" y2="320"  fill="none" stroke="blue" stroke-width=".2" />';
+	
+	for (var d1=1;d1<=klineNumber;d1++) {
+		day1=10*d1
+		j1=i-klineNumber+d1; // kline data position of array p1[]
+		if (p1[j1][close1]>p1[j1][open1]) color1='rgb(255,0,0)'
+		else color1='rgb(0,255,0)';
+		klineSVG+='   <line x1="' +d1+ '" y1="' +p1[j1][open1]+ '" x2="' +d1+ '" y2="' +p1[j1][close1]+ '" style="stroke:' +color1+ ';stroke-width:6"/>'
+		klineSVG+='   <line x1="' +d1+ '" y1="' +p1[j1][low1]+ '" x2="' +d1+ '" y2="' +p1[j1][high1]+ '" style="stroke:' +color1+ ';stroke-width:1"/>'
+	}
+
+	klineSVG+='</svg></body></html>'
+	writefile(p1[0][0]+"kline1.htm",klineSVG)
+	confirm(klineSVG)
+}
+
+
+/*
+function drawSVG(){
+ var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); //创建svg标签 
+	svg.setAttribute("width", "800");   //设置宽度
+	svg.setAttribute("height", "500");  //设置高度
+	document.body.appendChild(svg);  //将标签加入到document
+
+	var r = document.createElement("http://www.w3.org/2000/svg", "polyline");  //创建polyline对象，即折线对象，如果需要创建其他类型图像，<span style="white-space:pre">												</span>//修改 第二个参数
+	 r.setAttribute("fill", "white"); 
+	 r.setAttribute("points", "0,0 0,20 20,20 20,40 40,40 40,60");    //设置属性，表面的是折线经过的点的位置
+	 r.setAttribute("stroke", "red");                                 //设置图像颜色
+	 r.setAttribute("stroke-width", "2");                             //设置线宽
+	svg.appendChild(r);                  //添加到svg标签中
+ }
+*/
+</script>
+
+<style>
+.line
+{
+text-align:right;
+overflow:hidden;
+}
+</style>
+</head>
+<body onload="init1(this.stkform)">
+<h2>股票投资分析系统<button onclick="self.close()" style="font-size:18">离开</button></h2>
+<div id=div1 >
+<form id=stkform2>
+开始日期：<input type=text name=strdate size=8 value="20150626" /> 买入费率：<input type=text name=buyfee size=6 value="0.125" />%，<br>
+结束日期：<input type=text name=enddate size=8 value="20151026" /> 卖出费率：<input type=text name=sellfee size=6 value="0.125" />%<br>
+<button onclick="dspfile(this)" >单股测算</button>证券交易所：<select name=market><option value=sh  selected=selected>上海</option><option value=sz>深圳</option></select>
+测试股票：<input type=text name=stock value="600519" /> <span id="stkname"></span><br>
+<button onclick="testpool(this,'y')" >股票池测算</button><input type=text name=stkpool1 value="d:\stkwork\HS300.txt" /> 数据输出目录：<input type=text name=path2 value="d:\stkwork\" /><br>
+<button onclick="testdir(this)" >目录所有股测算</button>股票历史数据目录：<input type=text name=path1 value="d:\stock\" /> 
+<br><button onclick="testHolding(this)" >持股测算</button><br>
+<textarea name=stockholding cols=120 rows=3>//期初股票请填写在此处：sz/sh:股票代码:股数:成本价:买入日期
+sh:600036:1000:18.10:20150810
+sz:000001:1000:12.80:20150810</textarea>
+<br><br><button onclick="testGXZQ(this)" >国信证券股份测算</button><br>
+<textarea name=Gxzqholding cols=160 rows=3>
+证券代码	证券名称	证券数量	可卖数量	今买数量	持仓成本价	买入均价	当前价	最新市值	持仓盈亏	盈亏比例(%)	冻结数量	股东代码	交易所名称
+000046	泛海控股	1900	1900	0	10.7106	10.711	11.06	21014	663.87	3.26	0	0051961613	深圳A股
+000543	皖能电力	1200	1200	0	8.5994	8.599	7.04	8448	-1871.23	-18.13	0	0051961613	深圳A股
+</textarea>
+</form>
+<div id=dspbil></div>
+</div>
+
+<svg width="10cm" height="3cm" viewBox="0 0 100 30" version="1.1"
+     xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <desc>Example Use01 - Simple case of 'use' on a 'rect'</desc>
+  <defs>
+    <rect id="MyRect" width="60" height="10"/>
+  </defs>
+  <rect x=".1" y=".1" width="99.8" height="29.8"
+        fill="none" stroke="blue" stroke-width=".2" />
+  <use x="20" y="10" xlink:href="#MyRect" />
+
+</svg>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1">
+   <line x1="0" y1="0" x2="200" y2="200"
+   style="stroke:rgb(255,0,0);stroke-width:2"/>
+ </svg> 
+<p>增兴投资分析系统（STK）是投资专用的股票投资策略智能分析系统。本软件提供历史交易模拟测试和实时买卖建议。系统基于23年的研究成果，
+基于股票历史数据分析预测未来，风险自担，按效果收费使用，一般收取20%投资收益费，可以提供更高级的个性化定制服务、基金托管服务、投资咨询和技术服务。<br>
+本系统由李增兴开发创建，版权所有。切记: 任何投资策略使用者多即失效。</p>
+<img src=logo2.png><img src=logo3.png>
+</body>
+</html>
